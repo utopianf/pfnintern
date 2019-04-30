@@ -10,7 +10,7 @@ def np_log(x):
     return np.log(np.clip(a=x, a_min=1e-7, a_max=x))
 
 
-def numerical_gradient(f, x, e=1e-6):
+def numerical_gradient(f, x, e=1e-3):
     grad = np.zeros_like(x)
 
     it = np.nditer(x, flags=['multi_index'], op_flags=['readwrite'])
