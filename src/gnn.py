@@ -4,13 +4,22 @@ import numpy as np
 def np_log(x):
     """
     For overflow
-    :param x:
+
+    :param x: x
     :return: log of x
     """
     return np.log(np.clip(a=x, a_min=1e-7, a_max=x))
 
 
 def numerical_gradient(f, x, e=1e-3):
+    """
+    Get the gradient from function and the point
+
+    :param f: function for gradient
+    :param x: point for gradient
+    :param e: tiny real value
+    :return:
+    """
     grad = np.zeros_like(x)
 
     it = np.nditer(x, flags=['multi_index'], op_flags=['readwrite'])
@@ -30,7 +39,7 @@ def numerical_gradient(f, x, e=1e-3):
     return grad
 
 
-class Relu:
+class Relu(object):
     def __init__(self):
         self.mask = None
 
@@ -48,7 +57,7 @@ class Relu:
         return dx
 
 
-class Sigmoid:
+class Sigmoid(object):
     def __init__(self):
         self.out = None
 
@@ -66,23 +75,79 @@ class Sigmoid:
 
 def output_vector(X):
     """
+    Get output_vector (just adding together).
 
     :param X: vertex list
     :type X: np.array
-    :param X_A: Adjacency matrix
-    :type X_A: np.array
     :return: output graph
     """
     return X.sum(axis=0)
 
 
+class SGD(object):
+    def __init__(self, lr=0.01):
+        self.lr = lr
+
+    def update(self, params, grads):
+        for key in params.keys():
+            params[key] -= self.lr * grads[key]
+
+
+class Momentum(object):
+    def __init__(self, lr=0.01, momentum=0.9):
+        self.lr = lr
+        self.momentum = momentum
+        self.v = None
+
+    def update(self, params, grads):
+        if self.v is None:
+            self.v = {}
+            for key, val in params.items():
+                self.v[key] = np.zeros_like(val)
+
+        for key in params.keys():
+            self.v[key] = self.momentum * self.v[key] - self.lr * grads[key]
+            params[key] += self.v[key]
+
+
+class Adam(object):
+    def __init__(self, lr=0.001, beta1=0.9, beta2=0.999):
+        self.lr = lr
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.iter = 0
+        self.m = None
+        self.v = None
+
+    def update(self, params, grads):
+        if self.m is None:
+            self.m, self.v = {}, {}
+            for key, val in params.items():
+                self.m[key] = np.zeros_like(val)
+                self.v[key] = np.zeros_like(val)
+
+        self.iter += 1
+        lr_t = self.lr * np.sqrt(1.0 - self.beta2**self.iter) / (1.0 - self.beta1**self.iter)
+
+        for key in params.keys():
+            self.m[key] += (1 - self.beta1) * (grads[key] - self.m[key])
+            self.v[key] += (1 - self.beta2) * (grads[key]**2 - self.v[key])
+
+            params[key] -= lr_t * self.m[key] / (np.sqrt(self.v[key]) + 1e-7)
+
+
 class GNN(object):
     def __init__(self, D=8, W=None, A=None, b=None, T=2):
         """
+        GNN Layer object.
 
-        :type D: int
-        :param D: Input size.
-
+        :param D: Dimension number of feature vector
+        :param W: DxD matrix. Default initialize by sampling from a normal distribution with an average of 0 standard
+                    deviation of 0.4.
+        :param A: Dx1 matrix. Default initialize by sampling from a normal distribution with an average of 0 standard
+                    deviation of 0.4.
+        :param b: Real number. Default 0
+        :param T: Number of steps to consolidate. Default 2
         """
         self.D = D
         self.T = T
@@ -137,7 +202,7 @@ class GNN(object):
         :param X_A: Edge group
         :type X_A: np.ndarray
         :param t: Label which is included in {0, 1}
-        :type t: int
+        :type t: np.ndarray
         :return: Loss
         """
         p = self.predict(X, X_A)
